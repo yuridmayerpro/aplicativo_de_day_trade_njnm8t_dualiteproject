@@ -22,14 +22,27 @@ const parseChartData = (data: any): CandleData[] => {
   const timestamps = result.timestamp;
   const { open, high, low, close, volume } = result.indicators.quote[0];
 
+  const parseNumber = (value: number | null | undefined): number => {
+    if (value === null || value === undefined) {
+      return NaN;
+    }
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : NaN;
+  };
+
   return timestamps.map((ts: number, i: number) => ({
     timestamp: ts * 1000,
-    open: open[i] ? parseFloat(open[i].toFixed(2)) : 0,
-    close: close[i] ? parseFloat(close[i].toFixed(2)) : 0,
-    high: high[i] ? parseFloat(high[i].toFixed(2)) : 0,
-    low: low[i] ? parseFloat(low[i].toFixed(2)) : 0,
-    volume: volume[i] || 0,
-  })).filter(candle => candle.open && candle.close && candle.high && candle.low);
+    open: parseNumber(open[i]),
+    close: parseNumber(close[i]),
+    high: parseNumber(high[i]),
+    low: parseNumber(low[i]),
+    volume: Number.isFinite(volume[i]) ? Number(volume[i]) : 0,
+  })).filter(candle =>
+    Number.isFinite(candle.open) &&
+    Number.isFinite(candle.close) &&
+    Number.isFinite(candle.high) &&
+    Number.isFinite(candle.low)
+  );
 };
 
 export const fetchChartData = async (symbol: string): Promise<CandleData[]> => {
