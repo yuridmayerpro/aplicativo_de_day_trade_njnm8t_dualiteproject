@@ -1,64 +1,60 @@
 import axios from 'axios';
 import { Asset, CandleData } from '../types';
 
-// Switched to a more reliable CORS proxy to resolve network errors.
-const CORS_PROXY = 'https://corsproxy.io/?';
-const YAHOO_API_BASE_URL = 'https://query1.finance.yahoo.com';
+// Usando Binance para dados de gráfico e CoinGecko para dados de ticker.
+const BINANCE_API_BASE_URL = 'https://api.binance.com/api/v3';
 const COINGECKO_API_BASE_URL = 'https://api.coingecko.com/api/v3';
 
-// --- Chart Data (from Yahoo Finance) ---
+// --- Dados do Gráfico (da Binance) ---
 
-const parseChartData = (data: any): CandleData[] => {
-  if (!data || !data.chart || !data.chart.result || !data.chart.result[0]) {
-    console.error("Unexpected chart data format or empty response:", data);
+const parseBinanceChartData = (data: any[]): CandleData[] => {
+  if (!Array.isArray(data) || data.length === 0) {
+    console.error("Formato de dados do gráfico inesperado ou vazio da Binance:", data);
     return [];
   }
-  const result = data.chart.result[0];
-  if (!result.timestamp || !result.indicators || !result.indicators.quote || !result.indicators.quote[0]) {
-    console.error("Incomplete chart data:", data);
-    return [];
-  }
-
-  const timestamps = result.timestamp;
-  const { open, high, low, close, volume } = result.indicators.quote[0];
-
-  const parseNumber = (value: number | null | undefined): number => {
-    if (value === null || value === undefined) {
-      return NaN;
-    }
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? numeric : NaN;
-  };
-
-  return timestamps.map((ts: number, i: number) => ({
-    timestamp: ts * 1000,
-    open: parseNumber(open[i]),
-    close: parseNumber(close[i]),
-    high: parseNumber(high[i]),
-    low: parseNumber(low[i]),
-    volume: Number.isFinite(volume[i]) ? Number(volume[i]) : 0,
+  return data.map((kline: any[]) => ({
+    timestamp: kline[0],
+    open: parseFloat(kline[1]),
+    high: parseFloat(kline[2]),
+    low: parseFloat(kline[3]),
+    close: parseFloat(kline[4]),
+    volume: parseFloat(kline[5]),
   })).filter(candle =>
-    Number.isFinite(candle.open) &&
-    Number.isFinite(candle.close) &&
-    Number.isFinite(candle.high) &&
-    Number.isFinite(candle.low)
+    !isNaN(candle.open) &&
+    !isNaN(candle.close) &&
+    !isNaN(candle.high) &&
+    !isNaN(candle.low)
   );
 };
 
 export const fetchChartData = async (symbol: string): Promise<CandleData[]> => {
+  // O par USDT/USDT não existe na Binance. Retornamos um array vazio para evitar erros.
+  if (symbol === 'USDT-USD') {
+    console.warn("Não é possível buscar dados do gráfico para USDT-USD, pois o par USDT/USDT não é válido.");
+    return [];
+  }
+  
+  // Converte o símbolo de 'BTC-USD' para 'BTCUSDT'
+  const binanceSymbol = symbol.replace('-USD', 'USDT');
+  
+  // Calcula o início do dia UTC atual em milissegundos
+  const startTime = new Date().setUTCHours(0, 0, 0, 0);
+
   try {
-    const targetUrl = `${YAHOO_API_BASE_URL}/v8/finance/chart/${symbol}?range=1d&interval=5m`;
-    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(targetUrl)}`;
-    const response = await axios.get(proxyUrl);
-    return parseChartData(response.data);
+    // Busca os candles de 5 minutos a partir do início do dia UTC atual
+    // O limite de 1000 é mantido como um teto, mas o startTime filtrará os dados.
+    const targetUrl = `${BINANCE_API_BASE_URL}/klines?symbol=${binanceSymbol}&interval=5m&startTime=${startTime}&limit=1000`;
+    const response = await axios.get(targetUrl);
+    return parseBinanceChartData(response.data);
   } catch (error) {
-    console.error(`Error fetching chart data for ${symbol}:`, error);
+    console.error(`Erro ao buscar dados do gráfico para ${binanceSymbol} da Binance:`, error);
     return [];
   }
 };
 
 
-// --- Ticker Data (from CoinGecko) ---
+// --- Dados do Ticker (da CoinGecko) ---
+// Esta lógica permanece inalterada, pois fornece os dados do banner superior.
 
 const YAHOO_TO_CG_MAP: { [key: string]: { id: string, name: string } } = {
   'BTC-USD': { id: 'bitcoin', name: 'Bitcoin' },
@@ -115,7 +111,7 @@ export const fetchTickerData = async (symbols: string[]): Promise<Asset[]> => {
     return assets;
 
   } catch (error) {
-    console.error('Error fetching ticker data from CoinGecko:', error);
+    console.error('Erro ao buscar dados do ticker da CoinGecko:', error);
     return symbols.map(symbol => ({
         symbol,
         name: YAHOO_TO_CG_MAP[symbol]?.name || symbol,

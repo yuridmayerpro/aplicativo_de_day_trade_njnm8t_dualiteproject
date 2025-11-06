@@ -44,9 +44,10 @@ function App() {
     if (data.length > 0) {
       setCandleData(data);
       setLastUpdated(new Date());
-      // Set initial visible range based on default zoom (50% to 100%)
-      const initialStartIndex = Math.floor(data.length * 0.50);
-      setVisibleRange({ start: initialStartIndex, end: data.length });
+      // Set initial visible range to the full dataset for the current day
+      setVisibleRange({ start: 0, end: data.length - 1 });
+    } else {
+      setCandleData([]);
     }
     setIsLoading(false);
   }, []);
@@ -68,11 +69,12 @@ function App() {
       setIsLoading(false);
     };
     initialLoad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const tickerInterval = setInterval(updateTickerData, 60 * 1000);
-    const chartInterval = setInterval(() => loadChartData(selectedAsset), 60 * 1000);
+    const chartInterval = setInterval(() => loadChartData(selectedAsset), 5 * 60 * 1000); // 5 minutes
 
     return () => {
       clearInterval(tickerInterval);
@@ -96,6 +98,10 @@ function App() {
       }
       
       setSignals(newSignals.sort((a, b) => b.timestamp - a.timestamp));
+    } else {
+      setFullData([]);
+      setSignals([]);
+      setIndicators({ adx: 0, slope: 0, gog: 0 });
     }
   }, [candleData, params]);
 

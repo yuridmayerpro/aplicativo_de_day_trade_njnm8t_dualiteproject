@@ -12,6 +12,9 @@ interface CandlestickChartProps {
 
 const CandlestickChart: React.FC<CandlestickChartProps> = ({ data, signals, selectedAsset, timezone, onDataZoom }) => {
   const option = useMemo(() => {
+    if (!data) {
+        return {};
+    }
     const timestamps = data.map(d => new Date(d.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: timezone }));
     const candleData = data.map(d => [d.open, d.close, d.low, d.high]);
     const volumes = data.map(d => d.volume);
@@ -60,10 +63,10 @@ const CandlestickChart: React.FC<CandlestickChartProps> = ({ data, signals, sele
         }
       ],
       dataZoom: [
-        { type: 'inside', xAxisIndex: [0, 1], start: 50, end: 100 },
+        { type: 'inside', xAxisIndex: [0, 1], start: 0, end: 100 },
         {
           show: true, xAxisIndex: [0, 1], type: 'slider', bottom: '2%',
-          start: 50, end: 100, borderColor: '#475569',
+          start: 0, end: 100, borderColor: '#475569',
           fillerColor: 'rgba(71, 85, 105, 0.2)', handleStyle: { color: '#64748b' },
           textStyle: { color: '#94a3b8' }
         }
@@ -126,14 +129,20 @@ const CandlestickChart: React.FC<CandlestickChartProps> = ({ data, signals, sele
           <div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-500 rounded"></div><span className="text-sm text-slate-300">Baixa</span></div>
         </div>
       </div>
-      <ReactECharts 
-        option={option} 
-        style={{ height: '600px', width: '100%' }} 
-        opts={{ renderer: 'svg' }} 
-        notMerge={true} 
-        lazyUpdate={true}
-        onEvents={{ 'datazoom': onDataZoom }}
-      />
+      {data && data.length > 0 ? (
+        <ReactECharts 
+          option={option} 
+          style={{ height: '600px', width: '100%' }} 
+          opts={{ renderer: 'svg' }} 
+          notMerge={true} 
+          lazyUpdate={true}
+          onEvents={{ 'datazoom': onDataZoom }}
+        />
+      ) : (
+        <div style={{ height: '600px', width: '100%' }} className="flex items-center justify-center">
+            <p className="text-slate-400">Nenhum dado de gráfico disponível para o dia atual.</p>
+        </div>
+      )}
     </div>
   );
 };
