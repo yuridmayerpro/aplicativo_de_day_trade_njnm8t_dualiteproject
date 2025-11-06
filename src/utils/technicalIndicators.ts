@@ -245,14 +245,20 @@ export const generateSignalsAndIndicators = (
   const gogValues = calculateGOG(slopeValues, params.gogSpan);
   const { isSwingHigh, isSwingLow } = detectSwings(candles, params.swingLeft, params.swingRight);
 
-  const fullData: FullCandleData[] = candles.map((c, i) => ({
-    ...c,
-    adx: parseFloat(adxValues[i]?.toFixed(2) || 'NaN'),
-    slope: parseFloat(slopeValues[i]?.toFixed(4) || 'NaN'),
-    gog: parseFloat(gogValues[i]?.toFixed(5) || 'NaN'),
-    isSwingHigh: isSwingHigh[i],
-    isSwingLow: isSwingLow[i]
-  }));
+  const fullData: FullCandleData[] = candles.map((c, i) => {
+    const adx = adxValues[i];
+    const slope = slopeValues[i];
+    const gog = gogValues[i];
+
+    return {
+      ...c,
+      adx: Number.isFinite(adx) ? adx : NaN,
+      slope: Number.isFinite(slope) ? slope : NaN,
+      gog: Number.isFinite(gog) ? gog : NaN,
+      isSwingHigh: isSwingHigh[i],
+      isSwingLow: isSwingLow[i]
+    };
+  });
 
   const signals: Signal[] = [];
   let lastSwingHighPrice = NaN;
